@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SKYSHIU RGB Studio - Điều khiển LED Bàn phím cơ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #090b10;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Thanh cuộn tùy chỉnh tối màu */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f131a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #273043;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3b4863;
+    }
+
+    /* Khung bàn phím cơ 3D nhẹ */
+    .keyboard-chassis {
+      background: linear-gradient(145deg, #161b26 0%, #0d1017 100%);
+      box-shadow:
+        0 25px 60px -15px rgba(0, 0, 0, 0.85),
+        inset 0 1px 1px rgba(255, 255, 255, 0.08),
+        0 0 0 1px rgba(255, 255, 255, 0.06);
+      position: relative;
+    }
+
+    .keyboard-plate {
+      background: #080a0f;
+      box-shadow: inset 0 4px 16px rgba(0, 0, 0, 0.9);
+      position: relative;
+    }
+
+    /* Keycap mô phỏng chân thực */
+    .keycap {
+      position: relative;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #1e2433 0%, #151924 100%);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow:
+        0 4px 0 #0a0c12,
+        0 6px 10px rgba(0, 0, 0, 0.65),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      transition: transform 0.06s ease, box-shadow 0.06s ease, outline 0.1s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 5px 7px;
+      overflow: visible;
+    }
+
+    .keycap::before {
+      content: '';
+      position: absolute;
+      inset: 3px 4px 6px 4px;
+      border-radius: 5px;
+      background: linear-gradient(160deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.2) 100%);
+      pointer-events: none;
+    }
+
+    /* Lớp ánh sáng hắt dưới chân keycap */
+    .key-underglow {
+      position: absolute;
+      inset: -2px;
+      border-radius: 9px;
+      pointer-events: none;
+      z-index: 0;
+      transition: opacity 0.05s linear;
+    }
+
+    /* Trạng thái phím đang được nhấn */
+    .keycap.pressed {
+      transform: translateY(3px);
+      box-shadow:
+        0 1px 0 #0a0c12,
+        0 2px 4px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    /* Viền khi phím đang được chọn để chỉnh sửa */
+    .keycap.selected {
+      outline: 2px solid #38bdf8;
+      outline-offset: 1px;
+      z-index: 15;
+    }
+
+    .keycap.selected::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background-color: #38bdf8;
+      box-shadow: 0 0 6px #38bdf8;
+    }
+
+    /* Khung quét chọn chuột (Marquee Selection) */
+    #selectionBox {
+      position: fixed;
+      border: 1.5px solid #38bdf8;
+      background: rgba(56, 189, 248, 0.14);
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 50;
+      display: none;
+    }
+
+    /* Thanh trượt range hiện đại */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #1e2536;
+      height: 6px;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+      border: 2px solid #ffffff;
+      transition: transform 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    /* Ô chọn màu native ẩn viền */
+    input[type="color"] {
+      -webkit-appearance: none;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    input[type="color"]::-webkit-color-swatch {
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Khung quét chọn nhiều phím -->
+  <div id="selectionBox"></div>
+
+  <!-- Thông báo Toast nổi -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Thanh tiêu đề trên cùng (Header) -->
+  <header class="border-b border-slate-800/80 bg-[#0d1017]/95 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Logo & Tên thiết bị -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg tracking-tight text-white">SKYSHIU <span class="text-cyan-400">RGB Studio</span></h1>
+            <span class="text-[11px] font-mono-code px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">v2.4 PRO</span>
+          </div>
+          <p class="text-xs text-slate-400">Trình điều khiển LED từng phím & tổ hợp phím cơ</p>
+        </div>
+      </div>
+
+      <!-- Bộ chọn Layout & Profile -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Chuyển đổi Layout 60% / TKL -->
+        <div class="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+          <button id="btnLayout60" onclick="switchLayout('60')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-cyan-500 text-slate-950 shadow">
+            GK-61 (60%)
+          </button>
+          <button id="btnLayoutTKL" onclick="switchLayout('tkl')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white">
+            TKL (87 Phím)
+          </button>
+        </div>
+
+        <!-- Quản lý Profile -->
+        <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-xl border border-slate-800">
+          <span class="text-xs text-slate-400">Profile:</span>
+          <select id="profileSelect" onchange="loadSelectedProfile(this.value)" class="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer py-1 pr-2">
+          </select>
+          <button onclick="openNewProfileModal()" title="Tạo Profile mới" class="p-1.5 rounded-lg hover:bg-slate-800 text-cyan-400 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </button>
+          <button onclick="deleteCurrentProfile()" title="Xóa Profile hiện tại" class="p-1.5 rounded-lg hover:bg-slate-800 text-rose-400 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+
+        <!-- Xuất / Nhập JSON -->
+        <div class="flex items-center gap-1.5">
+          <button onclick="exportConfigJSON()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Xuất JSON
+          </button>
+          <label class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            Nhập JSON
+            <input type="file" id="importJsonInput" accept=".json" onchange="importConfigJSON(event)" class="hidden" />
+          </label>
+        </div>
+
+        <!-- Kết nối WebHID -->
+        <button id="btnWebHid" onclick="connectWebHID()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 hover:from-cyan-500/30 hover:to-indigo-500/30 border border-cyan-500/40 text-xs font-semibold text-cyan-300 flex items-center gap-2 transition">
+          <span id="hidStatusDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span id="hidStatusText">Kết nối WebHID (Mô phỏng)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Nội dung chính -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 py-5 grid grid-cols-1 xl:grid-cols-12 gap-5">
+
+    <!-- CỘT TRÁI (8 cột trên màn lớn): Khu vực bàn phím mô phỏng & chọn nhóm phím -->
+    <section class="xl:col-span-8 flex flex-col gap-4">
+
+      <!-- Thanh công cụ chọn nhanh & tổ hợp phím -->
+      <div class="bg-[#0f131c] border border-slate-800/90 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-semibold text-slate-400 mr-1">Chọn nhanh:</span>
+          <button onclick="selectAllKeys()" class="px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-medium text-white transition">Tất cả</button>
+          <button onclick="clearSelection()" class="px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-medium text-slate-300 transition">Bỏ chọn</button>
+          <button onclick="invertSelection()" class="px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-medium text-slate-300 transition">Đảo chọn</button>
+          <div class="h-4 w-[1px] bg-slate-700 mx-1"></div>
+          <button onclick="selectPresetGroup('wasd')" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/25 text-xs font-medium text-cyan-300 transition">WASD</button>
+          <button onclick="selectPresetGroup('numbers')" class="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/25 text-xs font-medium text-indigo-300 transition">Hàng số</button>
+          <button onclick="selectPresetGroup('modifiers')" class="px-2.5 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/25 text-xs font-medium text-purple-300 transition">Phím chức năng</button>
+          <button onclick="selectPresetGroup('arrows')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-xs font-medium text-emerald-300 transition">Mũi tên / Điều hướng</button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400">Đã chọn: <strong id="selectedCountBadge" class="text-cyan-400 font-mono-code">0</strong> phím</span>
+          <button onclick="saveCustomGroup()" class="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs flex items-center gap-1 transition shadow shadow-cyan-500/20">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+            Lưu thành nhóm
+          </button>
+        </div>
+      </div>
+
+      <!-- Danh sách các Nhóm / Tổ hợp phím đã lưu -->
+      <div id="customGroupsBar" class="bg-[#0f131c] border border-slate-800/90 rounded-2xl px-3.5 py-2.5 flex flex-wrap items-center gap-2">
+        <span class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          Tổ hợp / Nhóm phím của bạn:
+        </span>
+        <div id="customGroupsList" class="flex flex-wrap items-center gap-1.5">
+          <!-- Render động bằng JS -->
+        </div>
+      </div>
+
+      <!-- KHUNG MÔ PHỎNG BÀN PHÍM CƠ -->
+      <div id="keyboardWorkspace" class="keyboard-chassis rounded-3xl p-4 sm:p-6 flex flex-col items-center justify-center overflow-x-auto">
+        <!-- Dải đèn viền trên của bàn phím -->
+        <div class="w-full flex items-center justify-between mb-3 px-2">
+          <div class="flex items-center gap-2">
+            <span id="kbModelLabel" class="text-xs font-mono-code font-bold tracking-widest text-slate-400 uppercase">SKYSHIU GK-61 SE // CUSTOM RGB MATRIX</span>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] text-slate-400">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Gõ phím thật để thử hiệu ứng</span>
+            <span class="hidden sm:inline text-slate-600">|</span>
+            <span class="hidden sm:inline">Giữ <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300 font-mono-code">Ctrl</kbd> / kéo chuột để chọn nhiều phím</span>
+          </div>
+        </div>
+
+        <!-- Tấm Plate chứa các Keycap -->
+        <div id="keyboardPlate" class="keyboard-plate rounded-2xl p-3 sm:p-4 inline-block min-w-max">
+          <div id="keyboardGrid" class="flex flex-col gap-1.5">
+            <!-- Các hàng phím sẽ được tạo tự động bằng JavaScript -->
+          </div>
+        </div>
+
+        <!-- Thanh trạng thái & Log gói tin WebHID dưới bàn phím -->
+        <div class="w-full mt-4 pt-3 border-t border-slate-800/70 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 px-1">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500">Gói tin HID gần nhất:</span>
+            <code id="hidPacketPreview" class="font-mono-code text-[11px] bg-slate-900/90 text-cyan-300 px-2.5 py-1 rounded-lg border border-slate-800">
+              [0xAA, 0x55, 0xCC, 0x33, 0x07, 0x01, 0xFF, 0x64, ...]
+            </code>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="triggerDemoWave()" class="text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2">
+              Chạy thử sóng gõ phím
+            </button>
+            <button onclick="resetAllLeds()" class="text-rose-400 hover:text-rose-300 font-medium">
+              Đặt lại toàn bộ LED
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hướng dẫn thao tác nhanh -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div class="bg-[#0f131c]/80 border border-slate-800/70 rounded-xl p-3 flex items-start gap-2.5">
+          <div class="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 font-bold">1</div>
+          <div>
+            <p class="font-semibold text-slate-200">Chọn phím hoặc quét vùng</p>
+            <p class="text-slate-400 mt-0.5">Click vào phím bất kỳ, giữ Ctrl để chọn thêm, hoặc kéo chuột quét qua nhiều phím cùng lúc.</p>
+          </div>
+        </div>
+        <div class="bg-[#0f131c]/80 border border-slate-800/70 rounded-xl p-3 flex items-start gap-2.5">
+          <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 font-bold">2</div>
+          <div>
+            <p class="font-semibold text-slate-200">Phối màu & Hiệu ứng riêng</p>
+            <p class="text-slate-400 mt-0.5">Mỗi nhóm phím có thể mang hiệu ứng khác nhau: ví dụ WASD sáng tĩnh, các phím còn lại chạy cầu vồng.</p>
+          </div>
+        </div>
+        <div class="bg-[#0f131c]/80 border border-slate-800/70 rounded-xl p-3 flex items-start gap-2.5">
+          <div class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold">3</div>
+          <div>
+            <p class="font-semibold text-slate-200">Tương tác bàn phím thật</p>
+            <p class="text-slate-400 mt-0.5">Gõ trực tiếp trên bàn phím máy tính của bạn để kiểm tra hiệu ứng Reactive và Ripple theo thời gian thực.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CỘT PHẢI (4 cột trên màn lớn): Bảng điều khiển màu sắc & Hiệu ứng LED -->
+    <aside class="xl:col-span-4 flex flex-col gap-4">
+
+      <!-- Card 1: Phạm vi áp dụng -->
+      <div class="bg-[#0f131c] border border-slate-800/90 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-2.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Phạm vi áp dụng cấu hình</h2>
+          <span id="targetIndicator" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+            Toàn bộ bàn phím
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btnTargetSelected" onclick="setApplyScope('selected')" class="py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 bg-cyan-500/15 border-cyan-500 text-cyan-300">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/></svg>
+            Phím đang chọn (<span id="scopeSelectedCount">0</span>)
+          </button>
+          <button id="btnTargetAll" onclick="setApplyScope('all')" class="py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 bg-slate-900 border-slate-800 text-slate-400 hover:text-white">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/></svg>
+            Toàn bộ bàn phím
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: Cách sáng / Hiệu ứng LED -->
+      <div class="bg-[#0f131c] border border-slate-800/90 rounded-2xl p-4 flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Chế độ & Cách sáng LED
+          </h2>
+          <span id="activeEffectLabel" class="text-xs font-mono-code text-cyan-400">Sóng cầu vồng</span>
+        </div>
+
+        <!-- Lưới các hiệu ứng -->
+        <div id="effectsGrid" class="grid grid-cols-2 gap-2">
+          <!-- Render bằng JS -->
+        </div>
+
+        <!-- Thanh trượt Độ sáng & Tốc độ -->
+        <div class="pt-2 border-t border-slate-800/80 flex flex-col gap-3">
+          <div>
+            <div class="flex justify-between text-xs mb-1.5">
+              <span class="text-slate-300 font-medium">Độ sáng đèn (Brightness)</span>
+              <span id="brightnessVal" class="font-mono-code text-cyan-400 font-semibold">100%</span>
+            </div>
+            <input type="range" id="brightnessSlider" min="0" max="100" value="100" oninput="updateEffectParam('brightness', this.value)" class="w-full" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1.5">
+              <span class="text-slate-300 font-medium">Tốc độ hiệu ứng (Speed)</span>
+              <span id="speedVal" class="font-mono-code text-cyan-400 font-semibold">60%</span>
+            </div>
+            <input type="range" id="speedSlider" min="5" max="100" value="60" oninput="updateEffectParam('speed', this.value)" class="w-full" />
+          </div>
+
+          <!-- Tùy chọn hướng sóng (hiện khi dùng hiệu ứng có hướng) -->
+          <div id="directionControl" class="flex items-center justify-between pt-1">
+            <span class="text-xs text-slate-300 font-medium">Hướng chuyển động:</span>
+            <div class="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+              <button onclick="updateEffectParam('direction', 'right')" id="dirRight" class="px-2.5 py-1 rounded text-xs font-medium bg-cyan-500 text-slate-950">Trái → Phải</button>
+              <button onclick="updateEffectParam('direction', 'left')" id="dirLeft" class="px-2.5 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">Phải → Trái</button>
+              <button onclick="updateEffectParam('direction', 'down')" id="dirDown" class="px-2.5 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">Trên ↓ Dưới</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Tùy chỉnh Màu sắc -->
+      <div class="bg-[#0f131c] border border-slate-800/90 rounded-2xl p-4 flex flex-col gap-3.5">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-bold text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+            Bảng màu LED
+          </h2>
+
+          <div class="flex items-center gap-1.5">
+            <!-- Công cụ hút màu Eyedropper -->
+            <button id="btnEyedropper" onclick="toggleEyedropper()" title="Chấm sao chép màu từ phím khác" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1 transition">
+              <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              Hút màu
+            </button>
+
+            <!-- Tắt đèn phím -->
+            <button onclick="turnOffSelectedLeds()" title="Tắt đèn các phím đang chọn" class="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-xs font-medium text-rose-300 transition">
+              Tắt đèn
+            </button>
+          </div>
+        </div>
+
+        <!-- Bộ chọn màu chính & Mã HEX / RGB -->
+        <div class="flex items-center gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+          <input type="color" id="mainColorPicker" value="#00f0ff" oninput="handleColorPickerInput(this.value)" class="w-14 h-14 rounded-xl shrink-0" />
+          <div class="flex-1 flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400 w-9">HEX</span>
+              <input type="text" id="hexInput" value="#00F0FF" maxlength="7" onchange="handleHexInput(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono-code text-white uppercase focus:border-cyan-500 focus:outline-none" />
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-2 py-1">
+                <span class="text-[10px] text-rose-400 font-bold mr-1">R</span>
+                <input type="number" id="rgbR" min="0" max="255" value="0" onchange="handleRgbInput()" class="w-full bg-transparent text-xs font-mono-code text-white focus:outline-none" />
+              </div>
+              <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-2 py-1">
+                <span class="text-[10px] text-emerald-400 font-bold mr-1">G</span>
+                <input type="number" id="rgbG" min="0" max="255" value="240" onchange="handleRgbInput()" class="w-full bg-transparent text-xs font-mono-code text-white focus:outline-none" />
+              </div>
+              <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg px-2 py-1">
+                <span class="text-[10px] text-sky-400 font-bold mr-1">B</span>
+                <input type="number" id="rgbB" min="0" max="255" value="255" onchange="handleRgbInput()" class="w-full bg-transparent text-xs font-mono-code text-white focus:outline-none" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng màu mẫu nhanh (Swatches) -->
+        <div>
+          <span class="text-xs text-slate-400 block mb-2">Màu mẫu nhanh (Presets):</span>
+          <div id="colorSwatches" class="grid grid-cols-8 gap-2">
+            <!-- Render bằng JS -->
+          </div>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- Modal Tạo Profile mới -->
+  <div id="newProfileModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-[#121722] border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <h3 class="text-base font-bold text-white mb-1">Tạo Profile LED mới</h3>
+      <p class="text-xs text-slate-400 mb-4">Lưu lại cấu hình màu và hiệu ứng hiện tại thành một profile riêng.</p>
+      <input type="text" id="newProfileNameInput" placeholder="Ví dụ: Valorant, Làm việc đêm..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none mb-4" />
+      <div class="flex justify-end gap-2">
+        <button onclick="closeNewProfileModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300">Hủy</button>
+        <button onclick="confirmCreateProfile()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-xs font-semibold text-slate-950">Tạo Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Lưu nhóm phím tùy chỉnh -->
+  <div id="saveGroupModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-[#121722] border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <h3 class="text-base font-bold text-white mb-1">Lưu tổ hợp / nhóm phím</h3>
+      <p class="text-xs text-slate-400 mb-4">Đặt tên cho <strong id="modalGroupKeyCount" class="text-cyan-400">0</strong> phím đang chọn để gọi nhanh bất cứ lúc nào.</p>
+      <input type="text" id="newGroupNameInput" placeholder="Ví dụ: Phím Kỹ Năng QWER, Phím Tắt..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none mb-4" />
+      <div class="flex justify-end gap-2">
+        <button onclick="closeSaveGroupModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300">Hủy</button>
+        <button onclick="confirmSaveCustomGroup()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-xs font-semibold text-slate-950">Lưu nhóm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * DỮ LIỆU LAYOUT BÀN PHÍM CƠ (GK-61 60% & TKL 87 PHÍM)
+     * Mỗi phím gồm: id, label (chữ chính), sub (ký tự phụ), code (KeyboardEvent.code),
+     * u (độ rộng đơn vị keycap, chuẩn 1u), hid (mã HID chuẩn), group (loại phím)
+     * ============================================================================
+     */
+    const LAYOUT_60 = [
+      [
+        { id: 'Escape', label: 'ESC', code: 'Escape', u: 1, hid: 0x29, group: 'modifiers' },
+        { id: 'Digit1', label: '1', sub: '!', code: 'Digit1', u: 1, hid: 0x1E, group: 'numbers' },
+        { id: 'Digit2', label: '2', sub: '@', code: 'Digit2', u: 1, hid: 0x1F, group: 'numbers' },
+        { id: 'Digit3', label: '3', sub: '#', code: 'Digit3', u: 1, hid: 0x20, group: 'numbers' },
+        { id: 'Digit4', label: '4', sub: '$', code: 'Digit4', u: 1, hid: 0x21, group: 'numbers' },
+        { id: 'Digit5', label: '5', sub: '%', code: 'Digit5', u: 1, hid: 0x22, group: 'numbers' },
+        { id: 'Digit6', label: '6', sub: '^', code: 'Digit6', u: 1, hid: 0x23, group: 'numbers' },
+        { id: 'Digit7', label: '7', sub: '&', code: 'Digit7', u: 1, hid: 0x24, group: 'numbers' },
+        { id: 'Digit8', label: '8', sub: '*', code: 'Digit8', u: 1, hid: 0x25, group: 'numbers' },
+        { id: 'Digit9', label: '9', sub: '(', code: 'Digit9', u: 1, hid: 0x26, group: 'numbers' },
+        { id: 'Digit0', label: '0', sub: ')', code: 'Digit0', u: 1, hid: 0x27, group: 'numbers' },
+        { id: 'Minus', label: '-', sub: '_', code: 'Minus', u: 1, hid: 0x2D, group: 'numbers' },
+        { id: 'Equal', label: '=', sub: '+', code: 'Equal', u: 1, hid: 0x2E, group: 'numbers' },
+        { id: 'Backspace', label: 'BACKSPACE', code: 'Backspace', u: 2, hid: 0x2A, group: 'modifiers' }
+      ],
+      [
+        { id: 'Tab', label: 'TAB', code: 'Tab', u: 1.5, hid: 0x2B, group: 'modifiers' },
+        { id: 'KeyQ', label: 'Q', code: 'KeyQ', u: 1, hid: 0x14, group: 'alpha' },
+        { id: 'KeyW', label: 'W', code: 'KeyW', u: 1, hid: 0x1A, group: 'wasd' },
+        { id: 'KeyE', label: 'E', code: 'KeyE', u: 1, hid: 0x08, group: 'alpha' },
+        { id: 'KeyR', label: 'R', code: 'KeyR', u: 1, hid: 0x15, group: 'alpha' },
+        { id: 'KeyT', label: 'T', code: 'KeyT', u: 1, hid: 0x17, group: 'alpha' },
+        { id: 'KeyY', label: 'Y', code: 'KeyY', u: 1, hid: 0x1C, group: 'alpha' },
+        { id: 'KeyU', label: 'U', code: 'KeyU', u: 1, hid: 0x18, group: 'alpha' },
+        { id: 'KeyI', label: 'I', code: 'KeyI', u: 1, hid: 0x0C, group: 'alpha' },
+        { id: 'KeyO', label: 'O', code: 'KeyO', u: 1, hid: 0x12, group: 'alpha' },
+        { id: 'KeyP', label: 'P', code: 'KeyP', u: 1, hid: 0x13, group: 'alpha' },
+        { id: 'BracketLeft', label: '[', sub: '{', code: 'BracketLeft', u: 1, hid: 0x2F, group: 'alpha' },
+        { id: 'BracketRight', label: ']', sub: '}', code: 'BracketRight', u: 1, hid: 0x30, group: 'alpha' },
+        { id: 'Backslash', label: '\\', sub: '|', code: 'Backslash', u: 1.5, hid: 0x31, group: 'modifiers' }
+      ],
+      [
+        { id: 'CapsLock', label: 'CAPS', code: 'CapsLock', u: 1.75, hid: 0x39, group: 'modifiers' },
+        { id: 'KeyA', label: 'A', code: 'KeyA', u: 1, hid: 0x04, group: 'wasd' },
+        { id: 'KeyS', label: 'S', code: 'KeyS', u: 1, hid: 0x16, group: 'wasd' },
+        { id: 'KeyD', label: 'D', code: 'KeyD', u: 1, hid: 0x07, group: 'wasd' },
+        { id: 'KeyF', label: 'F', code: 'KeyF', u: 1, hid: 0x09, group: 'alpha' },
+        { id: 'KeyG', label: 'G', code: 'KeyG', u: 1, hid: 0x0A, group: 'alpha' },
+        { id: 'KeyH', label: 'H', code: 'KeyH', u: 1, hid: 0x0B, group: 'alpha' },
+        { id: 'KeyJ', label: 'J', code: 'KeyJ', u: 1, hid: 0x0D, group: 'alpha' },
+        { id: 'KeyK', label: 'K', code: 'KeyK', u: 1, hid: 0x0E, group: 'alpha' },
+        { id: 'KeyL', label: 'L', code: 'KeyL', u: 1, hid: 0x0F, group: 'alpha' },
+        { id: 'Semicolon', label: ';', sub: ':', code: 'Semicolon', u: 1, hid: 0x33, group: 'alpha' },
+        { id: 'Quote', label: "'", sub: '"', code: 'Quote', u: 1, hid: 0x34, group: 'alpha' },
+        { id: 'Enter', label: 'ENTER', code: 'Enter', u: 2.25, hid: 0x28, group: 'modifiers' }
+      ],
+      [
+        { id: 'ShiftLeft', label: 'SHIFT', code: 'ShiftLeft', u: 2.25, hid: 0xE1, group: 'modifiers' },
+        { id: 'KeyZ', label: 'Z', code: 'KeyZ', u: 1, hid: 0x1D, group: 'alpha' },
+        { id: 'KeyX', label: 'X', code: 'KeyX', u: 1, hid: 0x1B, group: 'alpha' },
+        { id: 'KeyC', label: 'C', code: 'KeyC', u: 1, hid: 0x06, group: 'alpha' },
+        { id: 'KeyV', label: 'V', code: 'KeyV', u: 1, hid: 0x19, group: 'alpha' },
+        { id: 'KeyB', label: 'B', code: 'KeyB', u: 1, hid: 0x05, group: 'alpha' },
+        { id: 'KeyN', label: 'N', code: 'KeyN', u: 1, hid: 0x11, group: 'alpha' },
+        { id: 'KeyM', label: 'M', code: 'KeyM', u: 1, hid: 0x10, group: 'alpha' },
+        { id: 'Comma', label: ',', sub: '<', code: 'Comma', u: 1, hid: 0x36, group: 'alpha' },
+        { id: 'Period', label: '.', sub: '>', code: 'Period', u: 1, hid: 0x37, group: 'alpha' },
+        { id: 'Slash', label: '/', sub: '?', code: 'Slash', u: 1, hid: 0x38, group: 'alpha' },
+        { id: 'ShiftRight', label: 'SHIFT', code: 'ShiftRight', u: 2.75, hid: 0xE5, group: 'modifiers' }
+      ],
+      [
+        { id: 'ControlLeft', label: 'CTRL', code: 'ControlLeft', u: 1.25, hid: 0xE0, group: 'modifiers' },
+        { id: 'MetaLeft', label: 'WIN', code: 'MetaLeft', u: 1.25, hid: 0xE3, group: 'modifiers' },
+        { id: 'AltLeft', label: 'ALT', code: 'AltLeft', u: 1.25, hid: 0xE2, group: 'modifiers' },
+        { id: 'Space', label: 'SPACE', code: 'Space', u: 6.25, hid: 0x2C, group: 'modifiers' },
+        { id: 'AltRight', label: 'ALT', code: 'AltRight', u: 1.25, hid: 0xE6, group: 'modifiers' },
+        { id: 'Fn', label: 'FN', code: 'ContextMenu', u: 1.25, hid: 0x65, group: 'modifiers' },
+        { id: 'ControlRight', label: 'CTRL', code: 'ControlRight', u: 1.25, hid: 0xE4, group: 'modifiers' },
+        { id: 'Backquote', label: '~', sub: '`', code: 'Backquote', u: 1.25, hid: 0x35, group: 'modifiers' }
+      ]
+    ];
+
+    // Layout TKL (87 phím) mở rộng từ cụm 60% + hàng F + cụm điều hướng
+    const LAYOUT_TKL = [
+      [
+        { id: 'Escape', label: 'ESC', code: 'Escape', u: 1, hid: 0x29, group: 'modifiers' },
+        { id: 'GapF0', spacer: true, u: 1 },
+        { id: 'F1', label: 'F1', code: 'F1', u: 1, hid: 0x3A, group: 'modifiers' },
+        { id: 'F2', label: 'F2', code: 'F2', u: 1, hid: 0x3B, group: 'modifiers' },
+        { id: 'F3', label: 'F3', code: 'F3', u: 1, hid: 0x3C, group: 'modifiers' },
+        { id: 'F4', label: 'F4', code: 'F4', u: 1, hid: 0x3D, group: 'modifiers' },
+        { id: 'GapF1', spacer: true, u: 0.5 },
+        { id: 'F5', label: 'F5', code: 'F5', u: 1, hid: 0x3E, group: 'modifiers' },
+        { id: 'F6', label: 'F6', code: 'F6', u: 1, hid: 0x3F, group: 'modifiers' },
+        { id: 'F7', label: 'F7', code: 'F7', u: 1, hid: 0x40, group: 'modifiers' },
+        { id: 'F8', label: 'F8', code: 'F8', u: 1, hid: 0x41, group: 'modifiers' },
+        { id: 'GapF2', spacer: true, u: 0.5 },
+        { id: 'F9', label: 'F9', code: 'F9', u: 1, hid: 0x42, group: 'modifiers' },
+        { id: 'F10', label: 'F10', code: 'F10', u: 1, hid: 0x43, group: 'modifiers' },
+        { id: 'F11', label: 'F11', code: 'F11', u: 1, hid: 0x44, group: 'modifiers' },
+        { id: 'F12', label: 'F12', code: 'F12', u: 1, hid: 0x45, group: 'modifiers' },
+        { id: 'GapNavTop', spacer: true, u: 0.35 },
+        { id: 'PrintScreen', label: 'PRT', code: 'PrintScreen', u: 1, hid: 0x46, group: 'arrows' },
+        { id: 'ScrollLock', label: 'SCR', code: 'ScrollLock', u: 1, hid: 0x47, group: 'arrows' },
+        { id: 'Pause', label: 'PAU', code: 'Pause', u: 1, hid: 0x48, group: 'arrows' }
+      ],
+      [
+        { id: 'Backquote', label: '`', sub: '~', code: 'Backquote', u: 1, hid: 0x35, group: 'numbers' },
+        ...LAYOUT_60[0].slice(1),
+        { id: 'GapNav1', spacer: true, u: 0.35 },
+        { id: 'Insert', label: 'INS', code: 'Insert', u: 1, hid: 0x49, group: 'arrows' },
+        { id: 'Home', label: 'HOM', code: 'Home', u: 1, hid: 0x4A, group: 'arrows' },
+        { id: 'PageUp', label: 'PGU', code: 'PageUp', u: 1, hid: 0x4B, group: 'arrows' }
+      ],
+      [
+        ...LAYOUT_60[1],
+        { id: 'GapNav2', spacer: true, u: 0.35 },
+        { id: 'Delete', label: 'DEL', code: 'Delete', u: 1, hid: 0x4C, group: 'arrows' },
+        { id: 'End', label: 'END', code: 'End', u: 1, hid: 0x4D, group: 'arrows' },
+        { id: 'PageDown', label: 'PGD', code: 'PageDown', u: 1, hid: 0x4E, group: 'arrows' }
+      ],
+      [
+        ...LAYOUT_60[2]
+      ],
+      [
+        ...LAYOUT_60[3],
+        { id: 'GapNav4', spacer: true, u: 1.35 },
+        { id: 'ArrowUp', label: '↑', code: 'ArrowUp', u: 1, hid: 0x52, group: 'arrows' },
+        { id: 'GapNav4b', spacer: true, u: 1 }
+      ],
+      [
+        { id: 'ControlLeft', label: 'CTRL', code: 'ControlLeft', u: 1.25, hid: 0xE0, group: 'modifiers' },
+        { id: 'MetaLeft', label: 'WIN', code: 'MetaLeft', u: 1.25, hid: 0xE3, group: 'modifiers' },
+        { id: 'AltLeft', label: 'ALT', code: 'AltLeft', u: 1.25, hid: 0xE2, group: 'modifiers' },
+        { id: 'Space', label: 'SPACE', code: 'Space', u: 6.25, hid: 0x2C, group: 'modifiers' },
+        { id: 'AltRight', label: 'ALT', code: 'AltRight', u: 1.25, hid: 0xE6, group: 'modifiers' },
+        { id: 'Fn', label: 'FN', code: 'ContextMenu', u: 1.25, hid: 0x65, group: 'modifiers' },
+        { id: 'Menu', label: 'MENU', code: 'Apps', u: 1.25, hid: 0x76, group: 'modifiers' },
+        { id: 'ControlRight', label: 'CTRL', code: 'ControlRight', u: 1.25, hid: 0xE4, group: 'modifiers' },
+        { id: 'GapNav5', spacer: true, u: 0.35 },
+        { id: 'ArrowLeft', label: '←', code: 'ArrowLeft', u: 1, hid: 0x50, group: 'arrows' },
+        { id: 'ArrowDown', label: '↓', code: 'ArrowDown', u: 1, hid: 0x51, group: 'arrows' },
+        { id: 'ArrowRight', label: '→', code: 'ArrowRight', u: 1, hid: 0x4F, group: 'arrows' }
+      ]
+    ];
+
+    /**
+     * DANH SÁCH HIỆU ỨNG LED
+     */
+    const LED_EFFECTS = [
+      { id: 'static', name: 'Sáng tĩnh', desc: 'Cố định 1 màu đã chọn' },
+      { id: 'breathing', name: 'Nhịp thở', desc: 'Sáng dịu rồi mờ dần theo nhịp' },
+      { id: 'rainbow', name: 'Sóng cầu vồng', desc: 'Dải màu quang phổ chuyển động' },
+      { id: 'reactive', name: 'Nhấp nháy gõ', desc: 'Sáng bừng khi bấm phím' },
+      { id: 'ripple', name: 'Sóng lan tỏa', desc: 'Tỏa vòng tròn ánh sáng từ phím gõ' },
+      { id: 'snake', name: 'Chạy đuổi', desc: 'Vệt sáng chạy nối đuôi nhau' },
+      { id: 'twinkle', name: 'Lấp lánh sao', desc: 'Nhấp nháy ngẫu nhiên như bầu trời' }
+    ];
+
+    const COLOR_SWATCHES = [
+      '#FF2A55', '#FF6B00', '#FFD600', '#00E676',
+      '#00F0FF', '#2979FF', '#7C4DFF', '#F50057',
+      '#FFFFFF', '#FF80AB', '#64FFDA', '#B388FF',
+      '#FFAB40', '#8C9EFF', '#A7FFEB', '#000000'
+    ];
+
+    /**
+     * TRẠNG THÁI ỨNG DỤNG (STATE)
+     */
+    let currentLayout = '60';
+    let applyScope = 'selected'; // 'selected' | 'all'
+    let eyedropperActive = false;
+    let selectedKeys = new Set();
+    let pressedKeys = new Set();
+
+    // Lưu cấu hình riêng cho từng phím: keyId -> { color, effect, brightness, speed, direction, off }
+    let keyConfigs = {};
+
+    // Cấu hình mặc định khi khởi tạo
+    let globalDefaultConfig = {
+      color: '#00f0ff',
+      effect: 'rainbow',
+      brightness: 100,
+      speed: 60,
+      direction: 'right',
+      off: false
+    };
+
+    // Các tổ hợp/nhóm phím tùy chỉnh của người dùng
+    let customGroups = [
+      { id: 'grp_wasd', name: 'Cụm WASD', keys: ['KeyW', 'KeyA', 'KeyS', 'KeyD'] },
+      { id: 'grp_qwer', name: 'Kỹ năng MOBA (QWER)', keys: ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyD', 'KeyF'] }
+    ];
+
+    // Quản lý Profiles
+    let profiles = {};
+    let currentProfileId = 'default';
+
+    // Các xung sóng gõ phím & hiệu ứng động
+    let keyHitTimestamps = {}; // keyId -> timestamp (ms)
+    let rippleWaves = []; // { x, y, time, color }
+    let twinkleSeeds = {}; // keyId -> { phase, freq }
+    let hidDevice = null;
+
+    // Cache DOM elements của từng phím để tối ưu FPS (60fps mượt mà)
+    let keyElementsMap = {}; // keyId -> { el, glowEl, x, y, index }
+
+    /**
+     * KHỞI TẠO ỨNG DỤNG
+     */
+    function initApp() {
+      renderEffectsGrid();
+      renderColorSwatches();
+      initDefaultProfiles();
+      loadProfilesFromStorage();
+      renderProfileDropdown();
+      renderCustomGroups();
+      renderKeyboard();
+      bindGlobalEvents();
+      requestAnimationFrame(animationLoop);
+    }
+
+    /**
+     * TẠO CÁC PROFILE MẪU BAN ĐẦU (Mặc định, Chơi game, Làm việc)
+     */
+    function initDefaultProfiles() {
+      const allKeys = getAllKeyObjects();
+
+      // 1. Profile Mặc định: Sóng cầu vồng
+      const defaultMap = {};
+      allKeys.forEach(k => {
+        defaultMap[k.id] = { color: '#00f0ff', effect: 'rainbow', brightness: 100, speed: 60, direction: 'right', off: false };
+      });
+
+      // 2. Profile Chơi game: WASD + QERF sáng tĩnh đỏ/cam rực, các phím khác nhấp nháy gõ xanh cyan
+      const gamingMap = {};
+      const hotkeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyR', 'KeyF', 'Space', 'ShiftLeft']);
+      allKeys.forEach(k => {
+        if (hotkeys.has(k.id)) {
+          gamingMap[k.id] = { color: '#ff2a55', effect: 'static', brightness: 100, speed: 70, direction: 'right', off: false };
+        } else {
+          gamingMap[k.id] = { color: '#00f0ff', effect: 'reactive', brightness: 85, speed: 75, direction: 'right', off: false };
+        }
+      });
+
+      // 3. Profile Làm việc: Ánh sáng trắng ấm dịu nhẹ kiểu nhịp thở
+      const workMap = {};
+      allKeys.forEach(k => {
+        workMap[k.id] = { color: '#ffd600', effect: 'breathing', brightness: 70, speed: 35, direction: 'right', off: false };
+      });
+
+      profiles = {
+        default: { name: 'Mặc định (Cầu vồng)', layout: '60', configs: defaultMap, groups: [...customGroups] },
+        gaming: { name: 'Chơi game (FPS / MOBA)', layout: '60', configs: gamingMap, groups: [...customGroups] },
+        work: { name: 'Làm việc ban đêm', layout: '60', configs: workMap, groups: [...customGroups] }
+      };
+    }
+
+    function loadProfilesFromStorage() {
+      try {
+        const saved = localStorage.getItem('skyshiu_rgb_profiles_v1');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.profiles && Object.keys(parsed.profiles).length > 0) {
+            profiles = parsed.profiles;
+            currentProfileId = parsed.currentProfileId || Object.keys(profiles)[0];
+          }
+        }
+      } catch (e) {
+        console.warn('Không thể đọc dữ liệu từ localStorage:', e);
+      }
+      applyProfileData(currentProfileId);
+    }
+
+    function saveProfilesToStorage() {
+      try {
+        if (profiles[currentProfileId]) {
+          profiles[currentProfileId].configs = JSON.parse(JSON.stringify(keyConfigs));
+          profiles[currentProfileId].layout = currentLayout;
+          profiles[currentProfileId].groups = JSON.parse(JSON.stringify(customGroups));
+        }
+        localStorage.setItem('skyshiu_rgb_profiles_v1', JSON.stringify({
+          profiles,
+          currentProfileId
+        }));
+      } catch (e) {
+        console.warn('Lỗi lưu localStorage:', e);
+      }
+    }
+
+    function applyProfileData(profileId) {
+      const prof = profiles[profileId];
+      if (!prof) return;
+      currentProfileId = profileId;
+      keyConfigs = JSON.parse(JSON.stringify(prof.configs || {}));
+      if (prof.groups) customGroups = JSON.parse(JSON.stringify(prof.groups));
+      if (prof.layout && prof.layout !== currentLayout) {
+        currentLayout = prof.layout;
+        updateLayoutButtonsUI();
+      }
+      ensureAllKeysHaveConfig();
+      renderCustomGroups();
+      renderKeyboard();
+      syncControlsFromSelection();
+    }
+
+    function ensureAllKeysHaveConfig() {
+      getAllKeyObjects().forEach(k => {
+        if (!keyConfigs[k.id]) {
+          keyConfigs[k.id] = { ...globalDefaultConfig };
+        }
+        if (!twinkleSeeds[k.id]) {
+          twinkleSeeds[k.id] = {
+            phase: Math.random() * Math.PI * 2,
+            freq: 0.8 + Math.random() * 2.2
+          };
+        }
+      });
+    }
+
+    function getAllKeyObjects() {
+      const layoutData = currentLayout === '60' ? LAYOUT_60 : LAYOUT_TKL;
+      const list = [];
+      layoutData.forEach(row => {
+        row.forEach(item => {
+          if (!item.spacer) list.push(item);
+        });
+      });
+      return list;
+    }
+
+    /**
+     * RENDER GIAO DIỆN BÀN PHÍM
+     */
+    function renderKeyboard() {
+      const grid = document.getElementById('keyboardGrid');
+      grid.innerHTML = '';
+      keyElementsMap = {};
+
+      const layoutData = currentLayout === '60' ? LAYOUT_60 : LAYOUT_TKL;
+      const baseUnitPx = currentLayout === '60' ? 50 : 44; // Kích thước chuẩn 1u
+      const gapPx = 6;
+
+      let flatIndex = 0;
+
+      layoutData.forEach((row, rowIndex) => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'flex items-center';
+        rowDiv.style.gap = `${gapPx}px`;
+
+        let currentX = 0;
+
+        row.forEach(item => {
+          const widthPx = item.u * baseUnitPx + (item.u - 1) * gapPx;
+
+          if (item.spacer) {
+            const spacer = document.createElement('div');
+            spacer.style.width = `${widthPx}px`;
+            spacer.style.height = `${baseUnitPx}px`;
+            rowDiv.appendChild(spacer);
+            currentX += widthPx + gapPx;
+            return;
+          }
+
+          const keyEl = document.createElement('div');
+          keyEl.className = 'keycap';
+          if (selectedKeys.has(item.id)) keyEl.classList.add('selected');
+          keyEl.dataset.keyId = item.id;
+          keyEl.style.width = `${widthPx}px`;
+          keyEl.style.height = `${baseUnitPx}px`;
+
+          // Lớp phát sáng LED dưới keycap
+          const glowEl = document.createElement('div');
+          glowEl.className = 'key-underglow';
+          keyEl.appendChild(glowEl);
+
+          // Nhãn phụ (nếu có)
+          const subSpan = document.createElement('span');
+          subSpan.className = 'text-[9px] font-mono-code text-slate-400 leading-none relative z-10';
+          subSpan.textContent = item.sub || '';
+          keyEl.appendChild(subSpan);
+
+          // Nhãn chính của phím
+          const mainSpan = document.createElement('span');
+          mainSpan.className = 'key-legend font-semibold tracking-tight leading-none relative z-10 transition-colors duration-75 ' +
+            (item.label.length > 2 ? 'text-[10px]' : 'text-xs sm:text-sm');
+          mainSpan.textContent = item.label;
+          keyEl.appendChild(mainSpan);
+
+          // Sự kiện click chọn phím & hiệu ứng nhấn thử
+          keyEl.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            handleKeyMouseDown(item.id, e);
+          });
+
+          rowDiv.appendChild(keyEl);
+
+          keyElementsMap[item.id] = {
+            el: keyEl,
+            glowEl: glowEl,
+            legendEl: mainSpan,
+            x: currentX + widthPx / 2,
+            y: rowIndex * (baseUnitPx + gapPx) + baseUnitPx / 2,
+            row: rowIndex,
+            index: flatIndex++
+          };
+
+          currentX += widthPx + gapPx;
+        });
+
+        grid.appendChild(rowDiv);
+      });
+
+      ensureAllKeysHaveConfig();
+      updateSelectionCounters();
+    }
+
+    /**
+     * XỬ LÝ CHỌN PHÍM (CLICK, CTRL/SHIFT, QUÉT CHUỘT, HÚT MÀU)
+     */
+    function handleKeyMouseDown(keyId, event) {
+      // Kích hoạt hiệu ứng gõ phím ngay khi click vào keycap
+      triggerKeyPressEffect(keyId);
+
+      // Nếu đang bật công cụ hút màu (Eyedropper)
+      if (eyedropperActive) {
+        const cfg = keyConfigs[keyId];
+        if (cfg) {
+          setColorControlsUI(cfg.color);
+          applyConfigChange({ color: cfg.color, off: false });
+          showToast(`Đã sao chép màu ${cfg.color.toUpperCase()} từ phím ${keyId}`);
+        }
+        toggleEyedropper(false);
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey || event.shiftKey) {
+        if (selectedKeys.has(keyId)) {
+          selectedKeys.delete(keyId);
+        } else {
+          selectedKeys.add(keyId);
+        }
+      } else {
+        // Nếu click vào phím duy nhất đang chọn thì giữ nguyên, ngược lại chọn phím mới
+        if (selectedKeys.size === 1 && selectedKeys.has(keyId)) {
+          // Giữ nguyên
+        } else {
+          selectedKeys.clear();
+          selectedKeys.add(keyId);
+        }
+      }
+
+      setApplyScope('selected');
+      refreshSelectedVisuals();
+      syncControlsFromSelection();
+    }
+
+    function refreshSelectedVisuals() {
+      Object.entries(keyElementsMap).forEach(([id, obj]) => {
+        if (selectedKeys.has(id)) {
+          obj.el.classList.add('selected');
+        } else {
+          obj.el.classList.remove('selected');
+        }
+      });
+      updateSelectionCounters();
+    }
+
+    function updateSelectionCounters() {
+      const count = selectedKeys.size;
+      document.getElementById('selectedCountBadge').textContent = count;
+      document.getElementById('scopeSelectedCount').textContent = count;
+
+      const indicator = document.getElementById('targetIndicator');
+      if (applyScope === 'all' || count === 0) {
+        indicator.textContent = 'Toàn bộ bàn phím';
+      } else if (count === 1) {
+        const onlyKey = Array.from(selectedKeys)[0];
+        indicator.textContent = `Phím: ${onlyKey}`;
+      } else {
+        indicator.textContent = `Nhóm ${count} phím đã chọn`;
+      }
+    }
+
+    function setApplyScope(scope) {
+      applyScope = scope;
+      const btnSel = document.getElementById('btnTargetSelected');
+      const btnAll = document.getElementById('btnTargetAll');
+
+      if (scope === 'selected') {
+        btnSel.className = 'py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 bg-cyan-500/15 border-cyan-500 text-cyan-300';
+        btnAll.className = 'py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 bg-slate-900 border-slate-800 text-slate-400 hover:text-white';
+      } else {
+        btnAll.className = 'py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 bg-cyan-500/15 border-cyan-500 text-cyan-300';
+        btnSel.className = 'py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 bg-slate-900 border-slate-800 text-slate-400 hover:text-white';
+      }
+      updateSelectionCounters();
+    }
+
+    /**
+     * CÁC NÚT CHỌN NHANH & NHÓM TÙY CHỈNH
+     */
+    function selectAllKeys() {
+      selectedKeys = new Set(Object.keys(keyElementsMap));
+      setApplyScope('selected');
+      refreshSelectedVisuals();
+      syncControlsFromSelection();
+    }
+
+    function clearSelection() {
+      selectedKeys.clear();
+      refreshSelectedVisuals();
+    }
+
+    function invertSelection() {
+      const next = new Set();
+      Object.keys(keyElementsMap).forEach(id => {
+        if (!selectedKeys.has(id)) next.add(id);
+      });
+      selectedKeys = next;
+      setApplyScope('selected');
+      refreshSelectedVisuals();
+      syncControlsFromSelection();
+    }
+
+    function selectPresetGroup(groupType) {
+      selectedKeys.clear();
+      getAllKeyObjects().forEach(k => {
+        if (k.group === groupType) {
+          selectedKeys.add(k.id);
+        }
+      });
+      setApplyScope('selected');
+      refreshSelectedVisuals();
+      syncControlsFromSelection();
+    }
+
+    function saveCustomGroup() {
+      if (selectedKeys.size === 0) {
+        showToast('Hãy chọn ít nhất 1 phím trước khi lưu nhóm!', 'warning');
+        return;
+      }
+      document.getElementById('modalGroupKeyCount').textContent = selectedKeys.size;
+      document.getElementById('newGroupNameInput').value = '';
+      document.getElementById('saveGroupModal').classList.remove('hidden');
+      document.getElementById('saveGroupModal').classList.add('flex');
+      document.getElementById('newGroupNameInput').focus();
+    }
+
+    function closeSaveGroupModal() {
+      document.getElementById('saveGroupModal').classList.add('hidden');
+      document.getElementById('saveGroupModal').classList.remove('flex');
+    }
+
+    function confirmSaveCustomGroup() {
+      const name = document.getElementById('newGroupNameInput').value.trim();
+      if (!name) {
+        showToast('Vui lòng nhập tên cho nhóm phím!', 'warning');
+        return;
+      }
+      customGroups.push({
+        id: 'grp_' + Date.now(),
+        name,
+        keys: Array.from(selectedKeys)
+      });
+      closeSaveGroupModal();
+      renderCustomGroups();
+      saveProfilesToStorage();
+      showToast(`Đã lưu nhóm "${name}" (${selectedKeys.size} phím)`);
+    }
+
+    function renderCustomGroups() {
+      const container = document.getElementById('customGroupsList');
+      container.innerHTML = '';
+
+      if (customGroups.length === 0) {
+        container.innerHTML = '<span class="text-xs text-slate-500 italic">Chưa có nhóm tùy chỉnh nào</span>';
+        return;
+      }
+
+      customGroups.forEach(grp => {
+        const chip = document.createElement('div');
+        chip.className = 'inline-flex items-center gap-1.5 bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 transition cursor-pointer';
+
+        const label = document.createElement('span');
+        label.textContent = `${grp.name} (${grp.keys.length})`;
+        label.onclick = () => {
+          selectedKeys = new Set(grp.keys.filter(id => keyElementsMap[id]));
+          setApplyScope('selected');
+          refreshSelectedVisuals();
+          syncControlsFromSelection();
+          showToast(`Đã chọn tổ hợp "${grp.name}"`);
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.innerHTML = '&times;';
+        delBtn.className = 'text-slate-400 hover:text-rose-400 font-bold ml-1';
+        delBtn.title = 'Xóa nhóm này';
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          customGroups = customGroups.filter(g => g.id !== grp.id);
+          renderCustomGroups();
+          saveProfilesToStorage();
+        };
+
+        chip.appendChild(label);
+        chip.appendChild(delBtn);
+        container.appendChild(chip);
+      });
+    }
+
+    /**
+     * QUÉT CHỌN NHIỀU PHÍM BẰNG CHUỘT (MARQUEE SELECTION)
+     */
+    function bindGlobalEvents() {
+      const workspace = document.getElementById('keyboardWorkspace');
+      const selBox = document.getElementById('selectionBox');
+      let isDragging = false;
+      let startX = 0, startY = 0;
+
+      workspace.addEventListener('mousedown', (e) => {
+        // Chỉ bắt đầu quét khi click vào vùng nền của bàn phím (không trúng keycap)
+        if (e.target.closest('.keycap')) return;
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        selBox.style.left = `${startX}px`;
+        selBox.style.top = `${startY}px`;
+        selBox.style.width = '0px';
+        selBox.style.height = '0px';
+        selBox.style.display = 'block';
+
+        if (!e.ctrlKey && !e.shiftKey) {
+          selectedKeys.clear();
+          refreshSelectedVisuals();
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const left = Math.min(startX, e.clientX);
+        const top = Math.min(startY, e.clientY);
+        const width = Math.abs(e.clientX - startX);
+        const height = Math.abs(e.clientY - startY);
+
+        selBox.style.left = `${left}px`;
+        selBox.style.top = `${top}px`;
+        selBox.style.width = `${width}px`;
+        selBox.style.height = `${height}px`;
+
+        const boxRect = { left, top, right: left + width, bottom: top + height };
+
+        Object.entries(keyElementsMap).forEach(([id, obj]) => {
+          const r = obj.el.getBoundingClientRect();
+          const overlap = !(r.right < boxRect.left || r.left > boxRect.right || r.bottom < boxRect.top || r.top > boxRect.bottom);
+          if (overlap) {
+            selectedKeys.add(id);
+          } else if (!e.ctrlKey && !e.shiftKey) {
+            selectedKeys.delete(id);
+          }
+        });
+
+        refreshSelectedVisuals();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          selBox.style.display = 'none';
+          if (selectedKeys.size > 0) {
+            setApplyScope('selected');
+            syncControlsFromSelection();
+          }
+        }
+      });
+
+      // Lắng nghe bàn phím máy tính thật của người dùng
+      window.addEventListener('keydown', (e) => {
+        // Bỏ qua nếu đang nhập liệu trong ô input
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+        const keyId = mapBrowserCodeToKeyId(e.code);
+        if (keyId && keyElementsMap[keyId]) {
+          if (!pressedKeys.has(keyId)) {
+            pressedKeys.add(keyId);
+            keyElementsMap[keyId].el.classList.add('pressed');
+            triggerKeyPressEffect(keyId);
+          }
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        const keyId = mapBrowserCodeToKeyId(e.code);
+        if (keyId && keyElementsMap[keyId]) {
+          pressedKeys.delete(keyId);
+          keyElementsMap[keyId].el.classList.remove('pressed');
+        }
+      });
+    }
+
+    function mapBrowserCodeToKeyId(code) {
+      if (keyElementsMap[code]) return code;
+      if (code === 'ContextMenu') return 'Fn';
+      return null;
+    }
+
+    function triggerKeyPressEffect(keyId) {
+      const now = performance.now();
+      keyHitTimestamps[keyId] = now;
+
+      const obj = keyElementsMap[keyId];
+      const cfg = keyConfigs[keyId] || globalDefaultConfig;
+      if (obj) {
+        rippleWaves.push({
+          x: obj.x,
+          y: obj.y,
+          time: now,
+          color: cfg.off ? '#00f0ff' : cfg.color
+        });
+        if (rippleWaves.length > 15) rippleWaves.shift();
+      }
+    }
+
+    function triggerDemoWave() {
+      const keys = Object.keys(keyElementsMap);
+      keys.forEach((id, idx) => {
+        setTimeout(() => {
+          triggerKeyPressEffect(id);
+          const el = keyElementsMap[id]?.el;
+          if (el) {
+            el.classList.add('pressed');
+            setTimeout(() => el.classList.remove('pressed'), 110);
+          }
+        }, idx * 14);
+      });
+    }
+
+    /**
+     * BẢNG ĐIỀU KHIỂN HIỆU ỨNG & MÀU SẮC
+     */
+    function renderEffectsGrid() {
+      const grid = document.getElementById('effectsGrid');
+      grid.innerHTML = '';
+
+      LED_EFFECTS.forEach(eff => {
+        const btn = document.createElement('button');
+        btn.id = `effBtn_${eff.id}`;
+        btn.onclick = () => applyConfigChange({ effect: eff.id, off: false });
+        btn.className = 'text-left p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:border-slate-700 transition flex flex-col gap-0.5';
+        btn.innerHTML = `
+          <span class="text-xs font-semibold text-slate-200">${eff.name}</span>
+          <span class="text-[10px] text-slate-400 line-clamp-1">${eff.desc}</span>
+        `;
+        grid.appendChild(btn);
+      });
+    }
+
+    function renderColorSwatches() {
+      const container = document.getElementById('colorSwatches');
+      container.innerHTML = '';
+
+      COLOR_SWATCHES.forEach(hex => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full aspect-square rounded-lg border border-white/15 hover:scale-110 transition shadow-sm';
+        btn.style.backgroundColor = hex;
+        btn.title = hex === '#000000' ? 'Tắt đèn (Đen)' : hex;
+        btn.onclick = () => {
+          if (hex === '#000000') {
+            turnOffSelectedLeds();
+          } else {
+            setColorControlsUI(hex);
+            applyConfigChange({ color: hex, off: false });
+          }
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function getTargetKeyIds() {
+      if (applyScope === 'all' || selectedKeys.size === 0) {
+        return Object.keys(keyElementsMap);
+      }
+      return Array.from(selectedKeys);
+    }
+
+    function applyConfigChange(partial) {
+      const targets = getTargetKeyIds();
+      targets.forEach(id => {
+        keyConfigs[id] = {
+          ...(keyConfigs[id] || globalDefaultConfig),
+          ...partial
+        };
+      });
+
+      globalDefaultConfig = { ...globalDefaultConfig, ...partial };
+      syncControlsFromSelection();
+      saveProfilesToStorage();
+      sendWebHidUpdate(targets, partial);
+    }
+
+    function updateEffectParam(param, value) {
+      const numVal = (param === 'brightness' || param === 'speed') ? Number(value) : value;
+      if (param === 'brightness') document.getElementById('brightnessVal').textContent = `${numVal}%`;
+      if (param === 'speed') document.getElementById('speedVal').textContent = `${numVal}%`;
+      applyConfigChange({ [param]: numVal });
+    }
+
+    function handleColorPickerInput(hex) {
+      setColorControlsUI(hex);
+      applyConfigChange({ color: hex, off: false });
+    }
+
+    function handleHexInput(val) {
+      let clean = val.trim();
+      if (!clean.startsWith('#')) clean = '#' + clean;
+      if (/^#[0-9A-Fa-f]{6}$/.test(clean)) {
+        setColorControlsUI(clean);
+        applyConfigChange({ color: clean, off: false });
+      }
+    }
+
+    function handleRgbInput() {
+      const r = clamp(Number(document.getElementById('rgbR').value) || 0, 0, 255);
+      const g = clamp(Number(document.getElementById('rgbG').value) || 0, 0, 255);
+      const b = clamp(Number(document.getElementById('rgbB').value) || 0, 0, 255);
+      const hex = rgbToHex(r, g, b);
+      setColorControlsUI(hex);
+      applyConfigChange({ color: hex, off: false });
+    }
+
+    function setColorControlsUI(hex) {
+      const upper = hex.toUpperCase();
+      document.getElementById('mainColorPicker').value = upper;
+      document.getElementById('hexInput').value = upper;
+      const { r, g, b } = hexToRgb(upper);
+      document.getElementById('rgbR').value = r;
+      document.getElementById('rgbG').value = g;
+      document.getElementById('rgbB').value = b;
+    }
+
+    function turnOffSelectedLeds() {
+      applyConfigChange({ off: true });
+      showToast('Đã tắt đèn LED cho vùng phím đã chọn');
+    }
+
+    function resetAllLeds() {
+      Object.keys(keyElementsMap).forEach(id => {
+        keyConfigs[id] = {
+          color: '#00f0ff',
+          effect: 'rainbow',
+          brightness: 100,
+          speed: 60,
+          direction: 'right',
+          off: false
+        };
+      });
+      syncControlsFromSelection();
+      saveProfilesToStorage();
+      showToast('Đã đặt lại toàn bộ LED về mặc định');
+    }
+
+    function toggleEyedropper(forceState) {
+      eyedropperActive = typeof forceState === 'boolean' ? forceState : !eyedropperActive;
+      const btn = document.getElementById('btnEyedropper');
+      if (eyedropperActive) {
+        btn.classList.add('ring-2', 'ring-amber-400', 'bg-amber-500/20');
+        showToast('Hãy nhấp vào một phím bất kỳ trên bàn phím để sao chép màu');
+      } else {
+        btn.classList.remove('ring-2', 'ring-amber-400', 'bg-amber-500/20');
+      }
+    }
+
+    function syncControlsFromSelection() {
+      const targets = getTargetKeyIds();
+      const sampleKey = targets[0];
+      const cfg = (sampleKey && keyConfigs[sampleKey]) ? keyConfigs[sampleKey] : globalDefaultConfig;
+
+      setColorControlsUI(cfg.color);
+      document.getElementById('brightnessSlider').value = cfg.brightness;
+      document.getElementById('brightnessVal').textContent = `${cfg.brightness}%`;
+      document.getElementById('speedSlider').value = cfg.speed;
+      document.getElementById('speedVal').textContent = `${cfg.speed}%`;
+
+      // Highlight nút hiệu ứng đang hoạt động
+      LED_EFFECTS.forEach(eff => {
+        const btn = document.getElementById(`effBtn_${eff.id}`);
+        if (!btn) return;
+        if (eff.id === cfg.effect && !cfg.off) {
+          btn.className = 'text-left p-2.5 rounded-xl border border-cyan-500 bg-cyan-500/15 transition flex flex-col gap-0.5 shadow-sm shadow-cyan-500/10';
+          document.getElementById('activeEffectLabel').textContent = eff.name;
+        } else {
+          btn.className = 'text-left p-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:border-slate-700 transition flex flex-col gap-0.5';
+        }
+      });
+
+      if (cfg.off) {
+        document.getElementById('activeEffectLabel').textContent = 'Đang tắt đèn';
+      }
+
+      // Cập nhật nút hướng
+      ['right', 'left', 'down'].forEach(dir => {
+        const dBtn = document.getElementById(`dir${dir.charAt(0).toUpperCase() + dir.slice(1)}`);
+        if (!dBtn) return;
+        if (cfg.direction === dir) {
+          dBtn.className = 'px-2.5 py-1 rounded text-xs font-medium bg-cyan-500 text-slate-950';
+        } else {
+          dBtn.className = 'px-2.5 py-1 rounded text-xs font-medium text-slate-400 hover:text-white';
+        }
+      });
+    }
+
+    /**
+     * VÒNG LẶP RENDER ÁNH SÁNG LED THEO THỜI GIAN THỰC (60 FPS)
+     */
+    function animationLoop(now) {
+      const totalKeys = Object.keys(keyElementsMap).length || 61;
+
+      Object.entries(keyElementsMap).forEach(([id, obj]) => {
+        const cfg = keyConfigs[id] || globalDefaultConfig;
+        const brightnessFactor = (cfg.brightness ?? 100) / 100;
+        const speedFactor = 0.2 + ((cfg.speed ?? 60) / 100) * 2.8;
+
+        let r = 0, g = 0, b = 0;
+        let alpha = 0;
+
+        if (!cfg.off && brightnessFactor > 0) {
+          const baseRgb = hexToRgb(cfg.color);
+
+          switch (cfg.effect) {
+            case 'static': {
+              r = baseRgb.r;
+              g = baseRgb.g;
+              b = baseRgb.b;
+              alpha = brightnessFactor;
+              break;
+            }
+
+            case 'breathing': {
+              const wave = (Math.sin(now * 0.0022 * speedFactor) + 1) / 2; // 0 -> 1
+              const eased = 0.12 + 0.88 * (wave * wave);
+              r = baseRgb.r;
+              g = baseRgb.g;
+              b = baseRgb.b;
+              alpha = eased * brightnessFactor;
+              break;
+            }
+
+            case 'rainbow': {
+              let coord = obj.x * 0.45;
+              if (cfg.direction === 'left') coord = -obj.x * 0.45;
+              if (cfg.direction === 'down') coord = obj.y * 1.6;
+              const hue = (coord - now * 0.06 * speedFactor) % 360;
+              const rgb = hslToRgb((hue + 360) % 360, 100, 52);
+              r = rgb.r;
+              g = rgb.g;
+              b = rgb.b;
+              alpha = brightnessFactor;
+              break;
+            }
+
+            case 'reactive': {
+              const lastHit = keyHitTimestamps[id] || 0;
+              const elapsed = now - lastHit;
+              const duration = 900 / speedFactor;
+              if (lastHit > 0 && elapsed < duration) {
+                const decay = 1 - elapsed / duration;
+                r = baseRgb.r;
+                g = baseRgb.g;
+                b = baseRgb.b;
+                alpha = Math.pow(decay, 1.5) * brightnessFactor;
+              } else {
+                // Ánh nền mờ nhẹ 8% để nhận diện keycap
+                r = baseRgb.r;
+                g = baseRgb.g;
+                b = baseRgb.b;
+                alpha = 0.08 * brightnessFactor;
+              }
+              break;
+            }
+
+            case 'ripple': {
+              let maxWaveAlpha = 0.06;
+              let mixR = baseRgb.r, mixG = baseRgb.g, mixB = baseRgb.b;
+
+              for (let i = 0; i < rippleWaves.length; i++) {
+                const w = rippleWaves[i];
+                const age = (now - w.time) / 1000; // giây
+                const radius = age * 420 * speedFactor;
+                const dist = Math.hypot(obj.x - w.x, obj.y - w.y);
+                const band = Math.abs(dist - radius);
+
+                if (band < 48 && age < 1.8) {
+                  const intensity = (1 - band / 48) * (1 - age / 1.8);
+                  if (intensity > maxWaveAlpha) {
+                    maxWaveAlpha = intensity;
+                    const wRgb = hexToRgb(w.color);
+                    mixR = wRgb.r;
+                    mixG = wRgb.g;
+                    mixB = wRgb.b;
+                  }
+                }
+              }
+              r = mixR;
+              g = mixG;
+              b = mixB;
+              alpha = maxWaveAlpha * brightnessFactor;
+              break;
+            }
+
+            case 'snake': {
+              const headPos = ((now * 0.015 * speedFactor) % totalKeys);
+              let dist = headPos - obj.index;
+              if (dist < 0) dist += totalKeys;
+              const tailLength = 10;
+              if (dist < tailLength) {
+                const intensity = 1 - dist / tailLength;
+                r = baseRgb.r;
+                g = baseRgb.g;
+                b = baseRgb.b;
+                alpha = Math.pow(intensity, 1.4) * brightnessFactor;
+              } else {
+                r = baseRgb.r;
+                g = baseRgb.g;
+                b = baseRgb.b;
+                alpha = 0.06 * brightnessFactor;
+              }
+              break;
+            }
+
+            case 'twinkle': {
+              const seed = twinkleSeeds[id] || { phase: 0, freq: 1 };
+              const val = Math.sin(now * 0.003 * speedFactor * seed.freq + seed.phase);
+              const sparkle = val > 0.3 ? Math.pow((val - 0.3) / 0.7, 1.5) : 0.07;
+              r = baseRgb.r;
+              g = baseRgb.g;
+              b = baseRgb.b;
+              alpha = sparkle * brightnessFactor;
+              break;
+            }
+          }
+        }
+
+        applyLedStyleToKey(obj, r, g, b, alpha);
+      });
+
+      requestAnimationFrame(animationLoop);
+    }
+
+    function applyLedStyleToKey(obj, r, g, b, alpha) {
+      if (alpha <= 0.01) {
+        obj.glowEl.style.boxShadow = 'none';
+        obj.glowEl.style.background = 'transparent';
+        obj.el.style.borderColor = 'rgba(255, 255, 255, 0.07)';
+        obj.legendEl.style.color = '#64748b';
+        obj.legendEl.style.textShadow = 'none';
+        return;
+      }
+
+      const clampedAlpha = clamp(alpha, 0, 1);
+      const glowBlur = Math.round(8 + clampedAlpha * 12);
+
+      // Hiệu ứng phát sáng hắt dưới chân keycap + xuyên led qua chữ
+      obj.glowEl.style.boxShadow = `0 0 ${glowBlur}px rgba(${r}, ${g}, ${b}, ${(clampedAlpha * 0.75).toFixed(2)})`;
+      obj.glowEl.style.background = `radial-gradient(circle at center, rgba(${r}, ${g}, ${b}, ${(clampedAlpha * 0.25).toFixed(2)}) 0%, transparent 75%)`;
+      obj.el.style.borderColor = `rgba(${r}, ${g}, ${b}, ${(0.18 + clampedAlpha * 0.65).toFixed(2)})`;
+
+      // Làm sáng chữ trên keycap (led xuyên phím)
+      const textR = Math.round(140 + (r - 140) * clampedAlpha);
+      const textG = Math.round(155 + (g - 155) * clampedAlpha);
+      const textB = Math.round(175 + (b - 175) * clampedAlpha);
+      obj.legendEl.style.color = `rgb(${textR}, ${textG}, ${textB})`;
+      obj.legendEl.style.textShadow = clampedAlpha > 0.35
+        ? `0 0 8px rgba(${r}, ${g}, ${b}, ${(clampedAlpha * 0.9).toFixed(2)})`
+        : 'none';
+    }
+
+    /**
+     * CHUYỂN ĐỔI LAYOUT, QUẢN LÝ PROFILE & XUẤT/NHẬP JSON
+     */
+    function switchLayout(layout) {
+      currentLayout = layout;
+      updateLayoutButtonsUI();
+      selectedKeys.clear();
+      renderKeyboard();
+      saveProfilesToStorage();
+    }
+
+    function updateLayoutButtonsUI() {
+      const btn60 = document.getElementById('btnLayout60');
+      const btnTkl = document.getElementById('btnLayoutTKL');
+      const label = document.getElementById('kbModelLabel');
+
+      if (currentLayout === '60') {
+        btn60.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-cyan-500 text-slate-950 shadow';
+        btnTkl.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white';
+        label.textContent = 'SKYSHIU GK-61 SE // 60% COMPACT RGB MATRIX';
+      } else {
+        btnTkl.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-cyan-500 text-slate-950 shadow';
+        btn60.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white';
+        label.textContent = 'SKYSHIU TKL-87 PRO // TENKEYLESS RGB MATRIX';
+      }
+    }
+
+    function renderProfileDropdown() {
+      const select = document.getElementById('profileSelect');
+      select.innerHTML = '';
+      Object.entries(profiles).forEach(([id, prof]) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = prof.name;
+        opt.className = 'bg-slate-900 text-white';
+        if (id === currentProfileId) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function loadSelectedProfile(profileId) {
+      applyProfileData(profileId);
+      saveProfilesToStorage();
+      showToast(`Đã chuyển sang Profile: ${profiles[profileId]?.name}`);
+    }
+
+    function openNewProfileModal() {
+      document.getElementById('newProfileNameInput').value = '';
+      document.getElementById('newProfileModal').classList.remove('hidden');
+      document.getElementById('newProfileModal').classList.add('flex');
+      document.getElementById('newProfileNameInput').focus();
+    }
+
+    function closeNewProfileModal() {
+      document.getElementById('newProfileModal').classList.add('hidden');
+      document.getElementById('newProfileModal').classList.remove('flex');
+    }
+
+    function confirmCreateProfile() {
+      const name = document.getElementById('newProfileNameInput').value.trim();
+      if (!name) {
+        showToast('Vui lòng nhập tên Profile!', 'warning');
+        return;
+      }
+      const newId = 'prof_' + Date.now();
+      profiles[newId] = {
+        name,
+        layout: currentLayout,
+        configs: JSON.parse(JSON.stringify(keyConfigs)),
+        groups: JSON.parse(JSON.stringify(customGroups))
+      };
+      currentProfileId = newId;
+      saveProfilesToStorage();
+      renderProfileDropdown();
+      closeNewProfileModal();
+      showToast(`Đã tạo Profile "${name}"`);
+    }
+
+    function deleteCurrentProfile() {
+      const keys = Object.keys(profiles);
+      if (keys.length <= 1) {
+        showToast('Không thể xóa Profile duy nhất còn lại!', 'warning');
+        return;
+      }
+      const deletedName = profiles[currentProfileId]?.name;
+      delete profiles[currentProfileId];
+      currentProfileId = Object.keys(profiles)[0];
+      applyProfileData(currentProfileId);
+      renderProfileDropdown();
+      saveProfilesToStorage();
+      showToast(`Đã xóa Profile "${deletedName}"`);
+    }
+
+    function exportConfigJSON() {
+      const payload = {
+        app: 'SKYSHIU RGB Studio',
+        version: '2.4',
+        exportedAt: new Date().toISOString(),
+        profileName: profiles[currentProfileId]?.name || 'Custom',
+        layout: currentLayout,
+        customGroups,
+        keyConfigs
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `skyshiu-rgb-${currentLayout}-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Đã xuất file cấu hình JSON thành công!');
+    }
+
+    function importConfigJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data.keyConfigs) throw new Error('File không đúng định dạng cấu hình LED');
+          if (data.layout && (data.layout === '60' || data.layout === 'tkl')) {
+            currentLayout = data.layout;
+            updateLayoutButtonsUI();
+          }
+          keyConfigs = data.keyConfigs;
+          if (Array.isArray(data.customGroups)) customGroups = data.customGroups;
+          ensureAllKeysHaveConfig();
+          renderCustomGroups();
+          renderKeyboard();
+          syncControlsFromSelection();
+          saveProfilesToStorage();
+          showToast('Đã nhập cấu hình LED từ file JSON!');
+        } catch (err) {
+          showToast('Lỗi đọc file JSON: ' + err.message, 'warning');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    /**
+     * KẾT NỐI WEBHID & GỬI GÓI TIN CHUẨN HEADER 0xAA 0x55 0xCC 0x33
+     */
+    async function connectWebHID() {
+      if (!('hid' in navigator)) {
+        showToast('Trình duyệt không hỗ trợ WebHID. Đang chạy ở chế độ mô phỏng.', 'warning');
+        return;
+      }
+
+      try {
+        const devices = await navigator.hid.requestDevice({ filters: [] });
+        if (devices && devices.length > 0) {
+          hidDevice = devices[0];
+          if (!hidDevice.opened) {
+            await hidDevice.open();
+          }
+          document.getElementById('hidStatusDot').className = 'w-2 h-2 rounded-full bg-emerald-400';
+          document.getElementById('hidStatusText').textContent = `Đã kết nối: ${hidDevice.productName || 'Thiết bị HID'}`;
+          showToast(`Đã kết nối WebHID với ${hidDevice.productName || 'bàn phím'}!`);
+        }
+      } catch (err) {
+        showToast('Chưa chọn thiết bị WebHID (Chế độ mô phỏng vẫn hoạt động)', 'warning');
+      }
+    }
+
+    async function sendWebHidUpdate(targetKeyIds, partialConfig) {
+      // Đóng gói khung dữ liệu 64-byte theo chuẩn giao thức SKYSHIU (0xAA 0x55 0xCC 0x33)
+      const packet = new Uint8Array(64);
+      packet[0] = 0xAA;
+      packet[1] = 0x55;
+      packet[2] = 0xCC;
+      packet[3] = 0x33;
+      packet[4] = 0x07; // Mã lệnh cập nhật LED
+      packet[5] = Math.min(targetKeyIds.length, 255);
+
+      const sampleCfg = keyConfigs[targetKeyIds[0]] || globalDefaultConfig;
+      const { r, g, b } = hexToRgb(sampleCfg.color);
+      packet[6] = sampleCfg.off ? 0 : r;
+      packet[7] = sampleCfg.off ? 0 : g;
+      packet[8] = sampleCfg.off ? 0 : b;
+      packet[9] = sampleCfg.brightness ?? 100;
+      packet[10] = sampleCfg.speed ?? 60;
+
+      // Hiển thị bản xem trước gói tin trên giao diện
+      const previewHex = Array.from(packet.slice(0, 11))
+        .map(byte => '0x' + byte.toString(16).toUpperCase().padStart(2, '0'))
+        .join(', ');
+      document.getElementById('hidPacketPreview').textContent = `[${previewHex}, ...]`;
+
+      if (hidDevice && hidDevice.opened) {
+        try {
+          await hidDevice.sendReport(0x00, packet);
+        } catch (err) {
+          console.warn('Gửi gói tin HID thử nghiệm:', err);
+        }
+      }
+    }
+
+    /**
+     * HÀM TIỆN ÍCH MÀU SẮC & THÔNG BÁO TOAST
+     */
+    function hexToRgb(hex) {
+      const clean = hex.replace('#', '');
+      const num = parseInt(clean, 16);
+      if (isNaN(num)) return { r: 0, g: 240, b: 255 };
+      return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => clamp(x, 0, 255).toString(16).padStart(2, '0')).join('');
+    }
+
+    function hslToRgb(h, s, l) {
+      s /= 100;
+      l /= 100;
+      const k = n => (n + h / 30) % 12;
+      const a = s * Math.min(l, 1 - l);
+      const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      return {
+        r: Math.round(255 * f(0)),
+        g: Math.round(255 * f(8)),
+        b: Math.round(255 * f(4))
+      };
+    }
+
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const borderClass = type === 'warning' ? 'border-amber-500/50 text-amber-200' : 'border-cyan-500/50 text-slate-100';
+      toast.className = `bg-[#121722]/95 backdrop-blur-md border ${borderClass} px-4 py-2.5 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2 transition-all duration-300 transform translate-y-2 opacity-0`;
+      toast.innerHTML = `
+        <span class="w-2 h-2 rounded-full ${type === 'warning' ? 'bg-amber-400' : 'bg-cyan-400'}"></span>
+        <span>${message}</span>
+      `;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 2800);
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
